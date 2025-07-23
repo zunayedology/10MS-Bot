@@ -20,7 +20,6 @@ def process_pdfs():
     for pdf_file in os.listdir(PDF_DIR):
         if pdf_file.endswith(".pdf"):
             pdf_path = os.path.join(PDF_DIR, pdf_file)
-            grade = pdf_file.split("_")[0]  # e.g., "HSC26" for naming
             text = extract_text_from_pdf(pdf_path)
             text_path = os.path.join(TEXT_DIR, "book.txt")
             save_text_to_file(text, text_path)
