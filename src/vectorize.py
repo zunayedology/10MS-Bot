@@ -1,5 +1,5 @@
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
 from process_data import load_and_chunk_texts
 from config import EMBEDDING_MODEL, FAISS_INDEX_DIR
 import os

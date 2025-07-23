@@ -1,9 +1,8 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-from langchain.llms import HuggingFacePipeline
+from langchain_huggingface import HuggingFacePipeline,HuggingFaceEmbeddings
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
-from langchain.vectorstores import FAISS
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
 import torch
 from config import MODEL_NAME, EMBEDDING_MODEL, FAISS_INDEX_DIR, TOP_K
 
@@ -13,7 +12,7 @@ def setup_rag_pipeline():
     model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
     device = 0 if torch.cuda.is_available() else -1
     model = model.to(f"cuda:{device}" if device >= 0 else "cpu")
-    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, max_length=512, device=device)
+    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, truncation=True, device=device)
     llm = HuggingFacePipeline(pipeline=pipe)
 
     # Load FAISS vector store

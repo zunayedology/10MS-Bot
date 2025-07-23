@@ -1,5 +1,5 @@
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document
+
 import os
 from config import TEXT_DIR, CHUNK_SIZE, CHUNK_OVERLAP
 
