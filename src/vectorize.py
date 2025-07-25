@@ -5,13 +5,22 @@ from config import EMBEDDING_MODEL, FAISS_INDEX_DIR
 import os
 
 def vectorize_and_store():
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
-    documents = load_and_chunk_texts()
-    os.makedirs(FAISS_INDEX_DIR, exist_ok=True)
-    db = FAISS.from_documents(documents, embeddings)
-    db.save_local(FAISS_INDEX_DIR)
-    return db
+    try:
+        documents = load_and_chunk_texts()
+        if not documents:
+            raise ValueError("No documents to vectorize.")
+        os.makedirs(FAISS_INDEX_DIR, exist_ok=True)
+
+        embeddings = HuggingFaceEmbeddings(
+            model_name=EMBEDDING_MODEL,
+            model_kwargs={"device": "cuda"}
+        )
+        db = FAISS.from_documents(documents, embeddings)
+        db.save_local(FAISS_INDEX_DIR)
+        print(f"FAISS index saved to {FAISS_INDEX_DIR}")
+        return db
+    except Exception as e:
+        print(f"Vectorization error: {str(e)}")
 
 if __name__ == "__main__":
-    db = vectorize_and_store()
-    print(f"FAISS index created in {FAISS_INDEX_DIR}")
+    vectorize_and_store()

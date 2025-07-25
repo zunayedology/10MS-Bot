@@ -1,84 +1,75 @@
 import streamlit as st
 import os
-from pathlib import Path
 from extract_text import process_pdfs
 from process_data import load_and_chunk_texts
 from vectorize import vectorize_and_store
 from rag_pipeline import setup_rag_pipeline
+from config import PDF_DIR, TEXT_DIR, FAISS_INDEX_DIR
 
-# Set project root directory (parent of src/)
-PROJECT_ROOT = str(Path(__file__).parent.parent)
-PDF_DIR = os.path.join(PROJECT_ROOT, "data", "raw")
-TEXT_DIR = os.path.join(PROJECT_ROOT, "data", "processed")
-FAISS_INDEX_DIR = os.path.join(PROJECT_ROOT, "faiss_index")
-
-# Create data/raw if it doesn't exist
+# Ensure directories exist
 os.makedirs(PDF_DIR, exist_ok=True)
+os.makedirs(TEXT_DIR, exist_ok=True)
+os.makedirs(FAISS_INDEX_DIR, exist_ok=True)
 
-# Function to check if pipeline needs to run
+# Helper: Check pipeline needs
 def should_run_pipeline():
-    # Check if PDFs exist
     pdf_exists = any(f.endswith(".pdf") for f in os.listdir(PDF_DIR))
-    # Check if processed texts exist
-    text_exists = os.path.exists(TEXT_DIR) and len(os.listdir(TEXT_DIR)) > 0
-    # Check if FAISS index exists
     faiss_exists = os.path.exists(os.path.join(FAISS_INDEX_DIR, "index.faiss"))
-    return pdf_exists and not (text_exists and faiss_exists)
+    return pdf_exists and not faiss_exists
 
-# Cache the RAG pipeline
+# Initialize RAG pipeline
 @st.cache_resource
 def initialize_pipeline():
     if should_run_pipeline():
-        with st.spinner("Processing PDFs..."):
+        with st.spinner("Extracting text from PDFs..."):
             process_pdfs()
-        with st.spinner("Chunking texts..."):
+        with st.spinner("Chunking text..."):
             load_and_chunk_texts()
-        with st.spinner("Vectorizing texts..."):
+        with st.spinner("Vectorizing text..."):
             vectorize_and_store()
-    with st.spinner("Setting up RAG pipeline..."):
-        return setup_rag_pipeline()
+    with st.spinner("Loading Bangla Qwen LLM pipeline..."):
+        rag_fn = setup_rag_pipeline()
+        if rag_fn is None:
+            raise RuntimeError("Failed to initialize RAG pipeline.")
+        return rag_fn
 
-# Set up Streamlit page
 st.title("10 Minute School Bangla AI")
+st.write("Ask questions about the Bangla textbook (English or Bangla).")
 
-# Check if PDFs exist
+# Check PDFs
 if not any(f.endswith(".pdf") for f in os.listdir(PDF_DIR)):
-    st.error(f"No PDFs found in {PDF_DIR}. Please add textbook PDFs to {PDF_DIR} and restart.")
+    st.warning(f"No PDFs found in {PDF_DIR}. Please add at least one PDF.")
     st.stop()
 
-# Initialize RAG pipeline
-if "rag_chain" not in st.session_state:
+# Initialize pipeline
+if "rag_fn" not in st.session_state:
     try:
-        st.session_state.rag_chain = initialize_pipeline()
+        st.session_state.rag_fn = initialize_pipeline()
     except Exception as e:
-        st.error(f"Failed to initialize RAG pipeline: {str(e)}")
+        st.error(f"Pipeline initialization failed: {e}")
         st.stop()
 
-# Initialize chat history
+# Session state for messages
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # Display chat history
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-# Input for new questions
-if prompt := st.chat_input("Enter your question:"):
-    # Add user message to chat history
+# Chat input
+if prompt := st.chat_input("Enter your question..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Get response from RAG pipeline
     with st.spinner("Thinking..."):
         try:
-            result = st.session_state.rag_chain.invoke({"question": prompt})
-            response = result["answer"]
+            response = st.session_state.rag_fn(prompt)
         except Exception as e:
-            response = f"Error: {str(e)}"
+            response = f"Error: {e}"
 
-    # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": response})
     with st.chat_message("assistant"):
         st.markdown(response)
